@@ -43,17 +43,14 @@ ps -f -p "${pid}" --no-headers | awk '{print $2,$3}' > "${LOCK_FILE}"
 # set Battery
 BATTERY="$(echo '/sys/class/power_supply/BAT'?)"
 
-# set full path
-ACPI_PATH="/sys/class/power_supply/${BATTERY}"
-
 # get battery status
-STAT="$(cat "${ACPI_PATH}/status")"
+STAT="$(cat "${BATTERY}/status")"
 
 # get remaining energy value
-REM="$(grep -E "POWER_SUPPLY_(CHARGE|ENERGY)_NOW" "${ACPI_PATH}/uevent" | cut -d '=' -f2)"
+REM="$(grep -E "POWER_SUPPLY_(CHARGE|ENERGY)_NOW" "${BATTERY}/uevent" | cut -d '=' -f2)"
 
 # get full energy value
-FULL="$(grep -E "POWER_SUPPLY_(CHARGE|ENERGY)_FULL_DESIGN" "${ACPI_PATH}/uevent" | cut -d '=' -f2)"
+FULL="$(grep -E "POWER_SUPPLY_(CHARGE|ENERGY)_FULL_DESIGN" "${BATTERY}/uevent" | cut -d '=' -f2)"
 
 # get current energy value in percent
 PERCENT="$((REM * 100 / FULL))"
@@ -86,7 +83,6 @@ fi
 #warning, if the nagbar is closed manually the pidfile might not be emptied properly
 #for safety the charging requirement below is relaxed, if you use the nagbar for other reasons
 #it might get closed accidentaly by this
-
 if [ "${PERCENT}" -gt "${LIMIT}" ] || [ "${STAT}" = "Charging" ] ; then
 	if [ -s "${NAGBARPIDFILE}" ] ; then
 		if ps -e | grep "$(cat "${NAGBARPIDFILE}")" | grep "i3-nagbar" ; then
