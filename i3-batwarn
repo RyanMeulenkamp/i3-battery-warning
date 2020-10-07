@@ -1,0 +1,87 @@
+#!/bin/bash
+
+#############################################
+# This is a simple battery warning script.  #
+# It uses i3's nagbar to display warnings.  #
+#                                           #
+# @author agribu                            #
+#############################################
+
+BATTERY="$(echo '/sys/class/power_supply/BAT'?)"	# Battery file
+WARNING_THRESHOLD='99'					# Set energy limit in percent, where warning should be displayed
+EMERGENCY_THRESHOLD='98'				# Set energy limit in percent, where emergency should be displayed
+LOCK_FILE='/var/lock/battery_state.lock'		# Lock file location
+PID_FILE="/run/user/${UID}/nagbar.pid"				# Save pid for killing later
+
+# get battery status
+get_status() {
+	cat "${BATTERY}/status"
+}
+
+# get current capacity
+get_percentage() {
+	cat "${BATTERY}/capacity"
+}
+
+is_nagbar_active() {
+	[ -s "${PID_FILE}" ] && ps -e | grep "$(cat "${PID_FILE}")" | grep -q "i3-nagbar"
+}
+
+display_nagbar() {
+	if is_nagbar_active ; then
+		echo "pidfile in order, nothing to do"
+	else
+		rm -f "${PID_FILE}"
+		/usr/bin/i3-nagbar -t "${1}" -m "${2}" &
+		echo "$!" > "${PID_FILE}"
+	fi
+}
+
+display_emergency() {
+	display_nagbar 'error' "Battery almost depleted ($(get_percentage)%)! Find charger quickly!"
+}
+
+display_warning() {
+	display_nagbar 'warning' "Low battery ($(get_percentage)%)! Find charger!"
+}
+
+kill_nagbar() {
+	if is_nagbar_active ; then
+		kill "$(cat "${PID_FILE}")"
+	fi
+	if is_nagbar_active ; then
+		kill -9 "$(cat "${PID_FILE}")"
+	fi
+	rm -f "${PID_FILE}"
+}
+
+await_status() {
+	# We'll just assume the charge won't get higher unless you plug in
+	while [ "$(get_status)" != "Charging" ] ; do
+		if [ -n "${1}" ] && [ "$(get_percentage)" -lt "${1}" ] ; then
+			# Let's not do that again! Empty up ${1}
+			shift
+			kill_nagbar
+			display_emergency
+		fi
+		sleep 2
+	done
+	kill_nagbar
+}
+
+main() {
+	if [ "$(get_status)" = "Discharging" ] ; then
+		if [ "$(get_percentage)" -lt "${EMERGENCY_THRESHOLD}" ] ; then
+			display_emergency
+			await_status &
+		elif [ "$(get_percentage)" -lt "${WARNING_THRESHOLD}" ] ; then
+			display_warning
+			await_status "${EMERGENCY_THRESHOLD}" &
+		fi
+	fi
+}
+
+(
+	flock -x -w 10 200 && main || exit 1
+) 200> "${LOCK_FILE}"
+rm -f "${LOCK_FILE}"
