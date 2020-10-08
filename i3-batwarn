@@ -8,10 +8,10 @@
 #############################################
 
 BATTERY="$(echo '/sys/class/power_supply/BAT'?)"	# Battery file
-WARNING_THRESHOLD='99'					# Set energy limit in percent, where warning should be displayed
-EMERGENCY_THRESHOLD='98'				# Set energy limit in percent, where emergency should be displayed
+WARNING_THRESHOLD='30'					# Set energy limit in percent, where warning should be displayed
+EMERGENCY_THRESHOLD='15'				# Set energy limit in percent, where emergency should be displayed
 LOCK_FILE='/var/lock/battery_state.lock'		# Lock file location
-PID_FILE="/run/user/${UID}/nagbar.pid"				# Save pid for killing later
+PID_FILE="/run/user/${UID}/nagbar.pid"			# Save pid for killing later
 
 # get battery status
 get_status() {
